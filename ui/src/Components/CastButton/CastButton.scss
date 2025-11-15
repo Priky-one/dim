@@ -1,0 +1,232 @@
+.cast-button-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.cast-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+
+  &.active {
+    background: rgba(59, 130, 246, 0.5);
+    
+    .cast-icon {
+      color: rgb(96, 165, 250);  // Bright blue when active
+    }
+    
+    &:hover {
+      background: rgba(59, 130, 246, 0.6);
+    }
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.cast-icon {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.cast-device-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.cast-device-modal {
+  background: #1a1a1a;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cast-device-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .close-button {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 32px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+  }
+}
+
+.cast-device-list {
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.device-list-hint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin: 0 4px 12px 4px;
+  text-align: center;
+}
+
+.no-devices {
+  padding: 40px 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+
+  p {
+    margin: 8px 0;
+    
+    &.hint {
+      font-size: 14px;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+  }
+}
+
+.cast-device-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+  user-select: none;
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.8);
+    transform: translateX(8px) scale(1.02);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+
+  &:active {
+    transform: translateX(8px) scale(0.98);
+    background: rgba(59, 130, 246, 0.3);
+  }
+  
+  &.selected {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.8);
+    
+    &:hover {
+      background: rgba(34, 197, 94, 0.3);
+      border-color: rgba(34, 197, 94, 1);
+    }
+  }
+}
+
+.device-icon {
+  font-size: 32px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.device-info {
+  flex: 1;
+  text-align: left;
+}
+
+.device-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.device-type {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.casting-indicator {
+  margin-top: 8px;
+  color: rgb(74, 222, 128);
+  font-size: 13px;
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.direct-play-badge {
+  display: inline-block;
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(74, 222, 128);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

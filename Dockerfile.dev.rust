@@ -1,0 +1,51 @@
+# Dockerfile.dev.rust
+FROM rust:1-bullseye
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libva-dev libva-drm2 libva2 sqlite3 ca-certificates \
+    wget xz-utils \
+    libtheora0 libvorbis0a libvorbisenc2 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install ffmpeg and ffprobe
+ARG TARGETPLATFORM
+RUN mkdir -p /opt/dim/utils && \
+    if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
+        wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz && \
+        tar --strip-components 1 -xf ffmpeg-release-arm64-static.tar.xz && \
+        mv ffmpeg /opt/dim/utils/ffmpeg && \
+        mv ffprobe /opt/dim/utils/ffprobe && \
+        rm -f ffmpeg-release-arm64-static.tar.xz ; \
+    elif [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
+        wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-armhf-static.tar.xz && \
+        tar --strip-components 1 -xf ffmpeg-release-armhf-static.tar.xz && \
+        mv ffmpeg /opt/dim/utils/ffmpeg && \
+        mv ffprobe /opt/dim/utils/ffprobe && \
+        rm -f ffmpeg-release-armhf-static.tar.xz ; \
+    else \
+        wget https://github.com/Dusk-Labs/ffmpeg-static/releases/download/ffmpeg-all-0.0.1/ffmpeg -O /opt/dim/utils/ffmpeg && \
+        wget https://github.com/Dusk-Labs/ffmpeg-static/releases/download/ffmpeg-all-0.0.1/ffprobe -O /opt/dim/utils/ffprobe ; \
+    fi && \
+    chmod +x /opt/dim/utils/ffmpeg /opt/dim/utils/ffprobe
+
+# install cargo-watch for auto rebuild in dev
+RUN cargo install cargo-watch --locked
+
+WORKDIR /workspace/dim
+
+# Create symlink to ffmpeg/ffprobe in workspace
+RUN mkdir -p /workspace/dim/utils && \
+    ln -s /opt/dim/utils/ffmpeg /workspace/dim/utils/ffmpeg && \
+    ln -s /opt/dim/utils/ffprobe /workspace/dim/utils/ffprobe
+
+# Copy Cargo manifests for caching layer; source will be bind-mounted by compose
+COPY Cargo.toml Cargo.lock ./ 
+
+# Create a dummy src/main.rs if none exists so `cargo build` doesn't immediately fail during image build.
+RUN mkdir -p src && echo 'fn main(){println!("dev container");}' > src/main.rs && cargo build || true
+
+EXPOSE 8000
+
+# Default command: watch and run on change
+CMD ["cargo", "watch", "-x", "run"]

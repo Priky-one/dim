@@ -1,6 +1,9 @@
+import React from "react";
+import { useState, useCallback } from "react";
 import { BrowserRouter, Switch } from "react-router-dom";
 
 import WS from "./Components/WS";
+import CastControlBar from "./Components/CastControlBar";
 
 import ThemeController from "./Controllers/Theme";
 import FaviconController from "./Controllers/Favicon";
@@ -21,54 +24,69 @@ import Preferences from "./Pages/Preferences/Index";
 
 import "./App.scss";
 
-const routes = (
-  <Switch>
-    <NotAuthedOnlyRoute exact path="/login">
-      <Login />
-    </NotAuthedOnlyRoute>
-    <NotAuthedOnlyRoute exact path="/register">
-      <Register />
-    </NotAuthedOnlyRoute>
-    <PrivateRoute exact path="/">
-      <MainLayout>
-        <Dashboard />
-      </MainLayout>
-    </PrivateRoute>
-    <PrivateRoute exact path="/library/:id">
-      <MainLayout>
-        <Library />
-      </MainLayout>
-    </PrivateRoute>
-    <PrivateRoute path="/search">
-      <MainLayout>
-        <SearchResults />
-      </MainLayout>
-    </PrivateRoute>
-    <PrivateRoute exact path="/media/:id">
-      <MainLayout>
-        <Media />
-      </MainLayout>
-    </PrivateRoute>
-    <PrivateRoute exact path="/preferences">
-      <MainLayout>
-        <Preferences />
-      </MainLayout>
-    </PrivateRoute>
-    <PrivateRoute exact path="/play/:fileID">
-      <VideoPlayer />
-    </PrivateRoute>
-  </Switch>
-);
+const App = () => {
+  const [resumePosition, setResumePosition] = useState(undefined);
+  const handlePlay = useCallback((position) => {
+    console.log('[App] handlePlay called with position:', position);
+    setResumePosition(position);
+  }, []);
 
-const App = () => (
-  <>
-    <ThemeController />
-    <FaviconController />
-    <WS>
-      <BrowserRouter>{routes}</BrowserRouter>
-      <Notifications />
-    </WS>
-  </>
-);
+  return (
+    <>
+      <ThemeController />
+      <FaviconController />
+      <WS>
+        <BrowserRouter>
+          <Switch>
+            <NotAuthedOnlyRoute exact path="/login">
+              <Login />
+            </NotAuthedOnlyRoute>
+
+            <NotAuthedOnlyRoute exact path="/register">
+              <Register />
+            </NotAuthedOnlyRoute>
+
+            <PrivateRoute exact path="/">
+              <MainLayout>
+                <Dashboard onPlay={handlePlay} />
+              </MainLayout>
+            </PrivateRoute>
+
+            <PrivateRoute exact path="/library/:id">
+              <MainLayout>
+                <Library />
+              </MainLayout>
+            </PrivateRoute>
+
+            <PrivateRoute path="/search">
+              <MainLayout>
+                <SearchResults />
+              </MainLayout>
+            </PrivateRoute>
+
+            <PrivateRoute exact path="/media/:id">
+              <MainLayout>
+                <Media onPlay={handlePlay}/>
+              </MainLayout>
+            </PrivateRoute>
+
+            <PrivateRoute exact path="/preferences">
+              <MainLayout>
+                <Preferences />
+              </MainLayout>
+            </PrivateRoute>
+
+            <PrivateRoute exact path="/play/:fileID">
+              <VideoPlayer />
+            </PrivateRoute>
+          </Switch>
+        </BrowserRouter>
+
+        <Notifications />
+        <CastControlBar resumePosition={resumePosition} />
+      </WS>
+    </>
+  );
+};
 
 export default App;

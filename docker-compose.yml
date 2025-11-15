@@ -1,0 +1,27 @@
+services:
+    dim:
+        container_name: dim
+        build:
+          context: .  # Use the current directory as the build context
+          dockerfile: Dockerfile  # Ensure the Dockerfile is named 'Dockerfile' or specify its name here
+        # image: ghcr.io/dusk-labs/dim:dev
+        restart: unless-stopped
+        # ports:
+            # - 127.0.0.1:18000:8000
+            # - 18000:8000
+        volumes:
+            - /opt/dim:/opt/dim/config
+            - debridmedia_mnt:/mnt
+            - /tmp:/tmp
+        labels:
+            - "autoheal-app=true"
+            - "traefik.enable=true"
+
+networks:
+  default:
+    name: shared_network
+    external: true
+
+volumes:
+  debridmedia_mnt:
+    external: true

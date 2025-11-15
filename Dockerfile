@@ -4,7 +4,10 @@ COPY ui/package*.json ./
 RUN yarn install
 COPY ui ./
 ENV NODE_OPTIONS=--openssl-legacy-provider
-RUN yarn run build
+# RUN yarn run build
+RUN apt-get update && apt-get install -y --no-install-recommends util-linux \
+ && taskset -c 0-1 yarn run build \
+ && rm -rf /var/lib/apt/lists/* 
 
 FROM debian:bullseye AS ffmpeg
 ARG DEBIAN_FRONTEND=noninteractive
@@ -49,12 +52,12 @@ ARG DATABASE_URL="sqlite://dim_dev.db"
 # Sometimes we may need to quickly build a test image
 ARG RUST_BUILD=release
 RUN if [ "$RUST_BUILD" = "debug" ]; then \
-        cargo build --features vaapi && \
+        cargo build --features vaapi -j 2 && \
         mv ./target/debug/dim ./target/dim \
     ; fi
 
 RUN if [ "$RUST_BUILD" = "release" ]; then \
-        cargo build --features vaapi --release && \
+        cargo build --features vaapi --release -j 2 && \
         mv ./target/release/dim ./target/dim \
     ; fi
 

@@ -33,6 +33,7 @@ pub struct AppState {
     event_tx: EventTx,
     state: StateManager,
     stream_tracking: StreamTracking,
+    cast_manager: dim_cast::CastManager,
 }
 
 fn library_routes(_app: AppState) -> Router<AppState> {
@@ -87,6 +88,10 @@ fn media_routes(AppState { .. }: AppState) -> Router<AppState> {
             "/api/v1/media/:id/rematch",
             post(routes::media::rematch_media_by_id),
         )
+            .route(
+                "/api/v1/media/:id/file",
+                get(routes::media::get_mediafile_file),
+            )
 }
 
 fn stream_routes(
@@ -136,6 +141,22 @@ fn stream_routes(
         )
 }
 
+fn cast_routes(AppState { .. }: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/api/v1/cast/devices", get(routes::cast::get_cast_devices))
+        .route("/api/v1/cast/session", post(routes::cast::start_cast_session))
+        .route(
+            "/api/v1/cast/session/:session_id",
+            get(routes::cast::get_cast_session)
+                .post(routes::cast::control_cast_session)
+                .delete(routes::cast::control_cast_session),
+        )
+        .route(
+            "/api/v1/cast/sessions",
+            get(routes::cast::get_user_cast_sessions),
+        )
+}
+
 fn season_routes(_app: AppState) -> Router<AppState> {
     Router::new()
         .route(
@@ -175,6 +196,7 @@ pub async fn start_webserver(
 ) {
     let state = stream_manager;
     let stream_tracking = StreamTracking::default();
+    let cast_manager = dim_cast::CastManager::new();
     let conn = dim_database::get_conn()
         .await
         .expect("Failed to grab a handle to the connection pool.");
@@ -215,16 +237,12 @@ pub async fn start_webserver(
         event_tx: event_tx.clone(),
         state,
         stream_tracking,
+        cast_manager: cast_manager.clone(),
     };
 
-    let router = axum::Router::new()
+    // Protected routes that require authentication
+    let protected_routes = axum::Router::new()
         .route("/api/v1/auth/whoami", get(routes::auth::whoami))
-        .route_layer(axum::middleware::from_fn_with_state(
-            conn.clone(),
-            verify_cookie_token,
-        ))
-        // --- End of routes authenticated by Axum middleware ---
-        .merge(auth_routes(app.clone()))
         .merge(library_routes(app.clone()))
         .route("/api/v1/dashboard", get(routes::dashboard::dashboard))
         .route("/api/v1/dashboard/banner", get(routes::dashboard::banners))
@@ -233,12 +251,17 @@ pub async fn start_webserver(
             "/api/v1/filebrowser/*path",
             get(routes::filebrowser::get_directory_structure),
         )
-        .route("/images/*path", get(routes::statik::get_image))
         .merge(media_routes(app.clone()))
         .merge(stream_routes(app.clone()))
+        .merge(cast_routes(app.clone()))
+        .route("/api/v1/cast/ws", get(routes::cast::cast_device_ws))
         .route(
             "/api/v1/mediafile/:id",
             get(routes::mediafile::get_mediafile_info),
+        )
+        .route(
+            "/api/v1/mediafile/:id/direct",
+            get(routes::mediafile::stream_direct_file),
         )
         .route(
             "/api/v1/mediafile/match",
@@ -268,10 +291,22 @@ pub async fn start_webserver(
             "/api/v1/auth/token/:token",
             delete(routes::auth::delete_token),
         )
+        .route_layer(axum::middleware::from_fn_with_state(
+            conn.clone(),
+            verify_cookie_token,
+        ));
+
+    let router = axum::Router::new()
+        // Public routes (no auth required)
+        .merge(auth_routes(app.clone()))
+        .route("/ws", get(ws_handler))
+        .route("/static/*path", get(routes::statik::dist_static))
+        .route("/images/*path", get(routes::statik::get_image))
+        // Merge protected routes with auth middleware
+        .merge(protected_routes)
+        // Fallback routes for React SPA (must be LAST to not catch API routes)
         .route("/", get(routes::statik::react_routes))
         .route("/*path", get(routes::statik::react_routes))
-        .route("/static/*path", get(routes::statik::dist_static))
-        .route("/ws", get(ws_handler))
         .with_state(app)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer({

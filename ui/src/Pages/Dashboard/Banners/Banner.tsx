@@ -12,13 +12,15 @@ import CircleIcon from "../../../assets/Icons/Circle";
 
 import "./Banner.scss";
 
+
 interface Props {
   data?: DashboardPoster;
   isError: boolean;
   isFetching: boolean;
+  onPlay?: (resumePosition: number) => void;
 }
 
-function Banner({ data, isError, isFetching }: Props) {
+function Banner({ data, isError, isFetching, onPlay }: Props) {
   const { libraries, user } = useAppSelector((store) => ({
     libraries: store.library.fetch_libraries,
     user: store.user,
@@ -106,7 +108,15 @@ function Banner({ data, isError, isFetching }: Props) {
           <p className="description">
             <TruncText content={synopsis} max={35} />
           </p>
-          <SelectMediaFile title={title} mediaID={id}>
+          <SelectMediaFile
+            title={title}
+            mediaID={id}
+            progress={delta}
+            onPlay={() => {
+              console.log('[Banner] Play triggered with delta:', delta);
+              onPlay?.(typeof delta === 'number' ? delta : 0);
+            }}
+          >
             <SelectMediaFilePlayButton
               progress={delta}
               seasonep={{ season, episode }}

@@ -7,7 +7,12 @@ import Crumbs from "./Crumbs";
 
 import "./Index.scss";
 
-function Banners() {
+
+interface BannersProps {
+  onPlay?: (resumePosition: number) => void;
+}
+
+function Banners({ onPlay }: BannersProps) {
   const { data: items, error, isFetching, refetch } = useGetBannersQuery();
 
   const ws = useWebSocket();
@@ -78,6 +83,7 @@ function Banners() {
         data={items && items[activeIndex]}
         isFetching={isFetching}
         isError={typeof error !== "undefined"}
+        onPlay={onPlay}
       />
       {items && items.length > 1 && (
         <Crumbs

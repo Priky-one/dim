@@ -23,6 +23,14 @@ export const notifications = createSlice({
   initialState,
   reducers: {
     addNotification: (state, action: PayloadAction<Notification>) => {
+      // Deduplicate connection notifications
+      if (action.payload.msg.includes("Connection to server lost") || action.payload.msg.includes("server has been restored")) {
+        if (state.list.some(n => n.msg === action.payload.msg)) return;
+        // Remove previous connection notifications
+        state.list = state.list.filter(n => !n.msg.includes("Connection to server lost") && !n.msg.includes("server has been restored"));
+      }
+      // Limit to max 3 notifications stacked
+      if (state.list.length >= 3) state.list.shift();
       state.list.push(action.payload);
     },
     removeNotification: (state, action: PayloadAction<number>) => {

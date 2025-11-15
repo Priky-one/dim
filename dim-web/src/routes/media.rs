@@ -1,3 +1,30 @@
+/// GET /api/v1/media/:id/file
+pub async fn get_mediafile_file(
+    Path(id): Path<i64>,
+    Extension(_user): Extension<User>, // match /api/v1/media/:id auth
+    State(AppState { conn, .. }): State<AppState>,
+) -> Result<Response, Error> {
+    let mut tx = conn.read().begin().await.map_err(DatabaseError::from)?;
+    let mediafile = MediaFile::get_one(&mut tx, id)
+        .await
+        .map_err(DatabaseError::from)?;
+
+    Ok(axum::response::Json(json!({
+        "id": mediafile.id,
+        "media_id": mediafile.media_id,
+        "library_id": mediafile.library_id,
+        "raw_name": mediafile.raw_name,
+        "target_file": mediafile.target_file,
+        "duration": mediafile.duration,
+        "season": mediafile.season,
+        "episode": mediafile.episode,
+        "quality": mediafile.quality,
+        "codec": mediafile.codec,
+        "container": mediafile.container,
+        "audio": mediafile.audio,
+        "original_resolution": mediafile.original_resolution,
+    })).into_response())
+}
 use crate::AppState;
 use axum::extract::Json;
 use axum::extract::Path;

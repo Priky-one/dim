@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod cast;
 pub mod dashboard;
 pub mod filebrowser;
 pub mod library;

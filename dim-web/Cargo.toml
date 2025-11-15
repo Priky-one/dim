@@ -12,6 +12,7 @@ dim-database = { path = "../dim-database" }
 dim-utils = { path = "../dim-utils" }
 dim-events = { path = "../dim-events" }
 dim-core = { path = "../dim-core" }
+dim-cast = { path = "../dim-cast" }
 
 nightfall = { git = "https://github.com/Dusk-Labs/nightfall", tag = "0.3.12-rc4", default-features = false, features = [
     "cuda",
@@ -41,6 +42,7 @@ serde_json = "^1.0.64"
 sqlx = { version = "0.5", features = ["runtime-tokio-rustls"] }
 thiserror = "1.0.30"
 tokio = { version = "1.27.0", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
 tracing = "0.1.32"
 tracing-appender = "0.2.0"
 tracing-subscriber = { version = "^0.3.10", features = [

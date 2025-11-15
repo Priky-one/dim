@@ -33,3 +33,7 @@ core
 
 #MacOS
 **/.DS_Store
+
+
+*.md
+!README.md

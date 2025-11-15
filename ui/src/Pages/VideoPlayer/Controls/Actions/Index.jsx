@@ -8,6 +8,7 @@ import SeekForward from "./SeekForward";
 import Subtitles from "./Subtitles";
 import Fullscreen from "./Fullscreen";
 import VideoActionSettings from "./Settings";
+import CastButton from "../../../../Components/CastButton";
 
 import NextVideo from "./NextVideo";
 import PrevVideo from "./PrevVideo";
@@ -65,6 +66,9 @@ function VideoActions(props) {
     };
   }, [showPlayer]);
 
+  const mediaFileId = video.tracks.video?.list?.[0]?.mediafile_id || 
+                      video.tracks.audio?.list?.[0]?.mediafile_id;
+
   return (
     <div className="videoActions">
       <section className="left">
@@ -80,6 +84,7 @@ function VideoActions(props) {
       <section className="right">
         <VideoActionSettings />
         <Subtitles />
+        {mediaFileId && <CastButton mediaFileId={mediaFileId} />}
         <Fullscreen />
       </section>
     </div>

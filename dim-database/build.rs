@@ -5,7 +5,19 @@ use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let out_dir = env::var("CARGO_TARGET_DIR").unwrap();
+    let out_dir = env::var("CARGO_TARGET_DIR")
+        .or_else(|_| env::var("OUT_DIR").map(|d| {
+            // OUT_DIR is something like /path/to/target/debug/build/dim-database-xxx/out
+            // We want to get to /path/to/target
+            std::path::PathBuf::from(d)
+                .parent()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|| "target".to_string())
+        }))
+        .unwrap_or_else(|_| "target".to_string());
 
     let db_file = format!("{out_dir}/dim_dev.db");
     println!("cargo:rustc-env=DATABASE_URL=sqlite://{db_file}");

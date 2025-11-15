@@ -1,6 +1,8 @@
 use crate::AppState;
 use axum::extract::Path;
 use axum::extract::State;
+use axum::http::StatusCode;
+use axum::Extension;
 use axum::response::IntoResponse;
 use axum::response::Json;
 use axum::response::Response;
@@ -24,7 +26,6 @@ use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 
-use http::StatusCode;
 use tracing::error;
 use tracing::info;
 
@@ -96,6 +97,15 @@ pub async fn get_mediafile_info(
         "media_id": mediafile.media_id,
         "library_id": mediafile.library_id,
         "raw_name": mediafile.raw_name,
+        "target_file": mediafile.target_file,
+        "duration": mediafile.duration,
+        "season": mediafile.season,
+        "episode": mediafile.episode,
+        "quality": mediafile.quality,
+        "codec": mediafile.codec,
+        "container": mediafile.container,
+        "audio": mediafile.audio,
+        "original_resolution": mediafile.original_resolution,
     }))
     .into_response())
 }
@@ -182,4 +192,111 @@ pub async fn rematch_mediafile(
     tx.commit().await.map_err(DatabaseError::from)?;
 
     Ok(StatusCode::OK)
+}
+
+/// Stream media file directly without transcoding
+pub async fn stream_direct_file(
+    State(AppState { conn, .. }): State<AppState>,
+    Extension(_user): Extension<dim_database::user::User>,
+    Path(id): Path<i64>,
+    headers: axum::http::HeaderMap,
+    ) -> Result<Response, crate::error::DimErrorWrapper> {
+    use tokio::fs::File;
+    use futures::TryStreamExt;
+    use tokio_util::codec::{BytesCodec, FramedRead};
+    use std::ops::Range as StdRange;
+
+    let mut tx = conn.read().begin().await?;
+    let media_file = MediaFile::get_one(&mut tx, id).await?;
+
+    tracing::info!("Streaming direct file: {} ({})", id, media_file.target_file);
+
+    // Open the file
+    let file = File::open(&media_file.target_file).await
+        .map_err(|e| {
+            tracing::error!("Failed to open file {}: {:?}", media_file.target_file, e);
+            crate::error::DimErrorWrapper::from(dim_core::errors::DimError::NotFoundError)
+        })?;
+
+    // Get file metadata for Content-Length
+    let metadata = file.metadata().await
+        .map_err(|e| {
+            tracing::error!("Failed to get file metadata: {:?}", e);
+            crate::error::DimErrorWrapper::from(dim_core::errors::DimError::NotFoundError)
+        })?;
+
+    let file_size = metadata.len();
+
+    // Determine MIME type from file extension
+    let mime_type = match media_file.target_file.rsplit('.').next() {
+        Some("mkv") => "video/x-matroska",
+        Some("mp4") => "video/mp4",
+        Some("avi") => "video/x-msvideo",
+        Some("webm") => "video/webm",
+        Some("mov") => "video/quicktime",
+        Some("m4v") => "video/x-m4v",
+        Some("ts") => "video/mp2t",
+        _ => "application/octet-stream",
+    };
+
+    // Parse Range header
+    let mut range: Option<StdRange<u64>> = None;
+    if let Some(range_header) = headers.get("range") {
+        if let Ok(range_str) = range_header.to_str() {
+            if range_str.starts_with("bytes=") {
+                let parts: Vec<&str> = range_str[6..].split('-').collect();
+                if let (Some(start_str), Some(end_str)) = (parts.get(0), parts.get(1)) {
+                    if let Ok(start) = start_str.parse::<u64>() {
+                        let end = if end_str.is_empty() {
+                            file_size - 1
+                        } else {
+                            end_str.parse::<u64>().unwrap_or(file_size - 1)
+                        };
+                        if start <= end && end < file_size {
+                            range = Some(start..(end + 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(range) = range {
+        // Partial content (206)
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        use tokio::fs::File;
+        let mut file = File::open(&media_file.target_file).await.map_err(|e| {
+            tracing::error!("Failed to open file {}: {:?}", media_file.target_file, e);
+            crate::error::DimErrorWrapper::from(dim_core::errors::DimError::NotFoundError)
+        })?;
+        file.seek(std::io::SeekFrom::Start(range.start)).await.map_err(|e| {
+            tracing::error!("Failed to seek file: {:?}", e);
+            crate::error::DimErrorWrapper::from(dim_core::errors::DimError::NotFoundError)
+        })?;
+        let length = range.end - range.start;
+        let stream = FramedRead::new(file.take(length), BytesCodec::new()).map_ok(|bytes| bytes.freeze());
+        let body = axum::body::boxed(axum::body::StreamBody::new(stream));
+        let content_range = format!("bytes {}-{}/{}", range.start, range.end - 1, file_size);
+        Ok(Response::builder()
+            .status(StatusCode::PARTIAL_CONTENT)
+            .header("Content-Type", mime_type)
+            .header("Content-Length", length.to_string())
+            .header("Content-Range", content_range)
+            .header("Accept-Ranges", "bytes")
+            .header("Access-Control-Allow-Origin", "*")
+            .body(body)
+            .unwrap())
+    } else {
+        // Full file (200)
+        let stream = FramedRead::new(file, BytesCodec::new()).map_ok(|bytes| bytes.freeze());
+        let body = axum::body::boxed(axum::body::StreamBody::new(stream));
+        Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", mime_type)
+            .header("Content-Length", file_size.to_string())
+            .header("Accept-Ranges", "bytes")
+            .header("Access-Control-Allow-Origin", "*")
+            .body(body)
+            .unwrap())
+    }
 }

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 
+// Simple in-memory cache for object URLs
+const imageObjectUrlCache = new Map<string, string>();
+
 export interface ImageLoadChildrenParams {
   imageSrc: string | null;
   loaded: boolean;
@@ -52,6 +55,15 @@ function ImageLoad(props: Props) {
       ? props.src
       : `/${props.src}`;
 
+    // Check cache first
+    if (imageObjectUrlCache.has(src)) {
+      setImageSrc(imageObjectUrlCache.get(src)!);
+      setLoaded(true);
+      setCurrentSrc(props.src);
+      setErr(false);
+      return;
+    }
+
     try {
       const req = await fetch(src, { signal });
       const blob = await req.blob();
@@ -63,31 +75,24 @@ function ImageLoad(props: Props) {
         setShow(true);
         setErr(true);
 
-        /*
-          prevents trying to re-fetch every time
-          the user navigates or reloads a page.
-        */
         if (tryAgainCount > 0) {
           const triedAlready = sessionStorage.getItem(props.src);
-
           if (!triedAlready) {
             setTryAgain(true);
           }
         } else {
           sessionStorage.setItem(props.src, "skip");
         }
-
         return;
       }
 
       const imageObjectURL = URL.createObjectURL(blob);
-
+      imageObjectUrlCache.set(src, imageObjectURL);
       setImageSrc(imageObjectURL);
       setErr(false);
     } catch (e) {
       setErr(true);
       setShow(true);
-
       console.log("[img] unexpected error:", e);
     }
   }, [props.src, signal, tryAgainCount]);

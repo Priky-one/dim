@@ -155,15 +155,26 @@ pub async fn get_conn_logged() -> sqlx::Result<DbConnection> {
 }
 
 async fn internal_get_conn() -> sqlx::Result<DbConnection> {
+    // Check for DATABASE_URL environment variable first, then fall back to default path
+    let db_path = std::env::var("DATABASE_URL")
+        .ok()
+        .and_then(|url| {
+            // Extract path from sqlite:// or sqlite:/// URL
+            url.strip_prefix("sqlite://").map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| ffpath("config/dim.db").to_string());
+
+    info!("Connecting to database at: {}", db_path);
+
     let rw_only = sqlx::sqlite::SqliteConnectOptions::new()
         .create_if_missing(true)
-        .filename(ffpath("config/dim.db"))
+        .filename(&db_path)
         .connect()
         .await?;
 
     let rd_only = sqlx::pool::PoolOptions::new()
         .connect_with(
-            sqlx::sqlite::SqliteConnectOptions::from_str(ffpath("config/dim.db"))?
+            sqlx::sqlite::SqliteConnectOptions::from_str(&db_path)?
                 .read_only(true)
                 .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
                 .create_if_missing(true),

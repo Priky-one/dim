@@ -1,0 +1,24 @@
+# Dockerfile.dev.web
+FROM node:18-bullseye
+
+# Put node modules and workspace in /workspace/ui
+WORKDIR /workspace/ui
+
+# Install util-linux optionally for any taskset usage (not strictly required here)
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy package*.json only to install dependencies for caching (we will mount source at runtime)
+COPY ui/package*.json ./ 
+
+# Install dependencies into the image-level node_modules. In compose we'll mount a named volume
+# to persist node_modules across container restarts.
+RUN yarn install --frozen-lockfile
+
+# Default env helpful for older OpenSSL builds (matching your current Dockerfile)
+ENV NODE_OPTIONS=--openssl-legacy-provider
+ENV BROWSERSLIST_IGNORE_HTTPS=true
+
+# By default, run CRA dev server
+EXPOSE 3000
+CMD ["yarn", "start"]

@@ -16,7 +16,7 @@ import Dropdown from "./Dropdown";
 import "./MetaContent.scss";
 
 function MetaContent(props) {
-  const { activeId } = props;
+  const { activeId, onPlay } = props;
   const history = useHistory();
 
   const { id } = useParams();
@@ -112,7 +112,18 @@ function MetaContent(props) {
           </div>
         </div>
         {media_type !== "tv" && (
-          <SelectMediaFile title={name} mediaID={id}>
+          <SelectMediaFile
+            title={name}
+            mediaID={id}
+            progress={progress}
+            onPlay={() => {
+              console.log('[MetaContent] Play triggered with progress:', progress);
+              if (typeof progress !== 'number') {
+                console.warn('[MetaContent] progress is not a number:', progress);
+              }
+              onPlay?.(typeof progress === 'number' ? progress : 0);
+            }}
+          >
             <SelectMediaFilePlayButton
               progress={progress}
               seasonep={{ season, episode }}

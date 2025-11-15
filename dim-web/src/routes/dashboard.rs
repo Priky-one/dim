@@ -159,7 +159,9 @@ pub async fn dashboard(
 ) -> Result<Response, AuthError> {
     let mut tx = conn.read().begin().await.map_err(DatabaseError::from)?;
     let mut top_rated = Vec::new();
-    for media in Media::get_top_rated(&mut tx, 10).await? {
+    let top_rated_ids = Media::get_top_rated(&mut tx, 10).await?;
+    eprintln!("[DASHBOARD DEBUG] Top rated media IDs: {:?}", top_rated_ids);
+    for media in top_rated_ids {
         let item = match sqlx::query!(
             "SELECT _tblmedia.name, assets.local_path FROM _tblmedia LEFT JOIN assets ON assets.id = _tblmedia.poster
             WHERE _tblmedia.id = ?",
@@ -177,7 +179,9 @@ pub async fn dashboard(
     }
 
     let mut recently_added = Vec::new();
-    for media in Media::get_recently_added(&mut tx, 10).await? {
+    let recently_added_ids = Media::get_recently_added(&mut tx, 10).await?;
+    eprintln!("[DASHBOARD DEBUG] Recently added media IDs: {:?}", recently_added_ids);
+    for media in recently_added_ids {
         let item = match sqlx::query!(
             "SELECT _tblmedia.name, assets.local_path FROM _tblmedia LEFT JOIN assets ON assets.id = _tblmedia.poster
             WHERE _tblmedia.id = ?",

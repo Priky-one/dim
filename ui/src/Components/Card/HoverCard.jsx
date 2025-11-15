@@ -132,7 +132,15 @@ function HoverCard(props) {
               </p>
               <p>HH MM SS</p>
             </div>
-            <SelectMediaFile title={name} mediaID={play_btn_id || id}>
+            <SelectMediaFile
+              title={name}
+              mediaID={play_btn_id || id}
+              progress={progress}
+              onPlay={() => {
+                console.log('[HoverCard] Play triggered with progress:', progress);
+                props.onPlay?.(typeof progress === 'number' ? progress : 0);
+              }}
+            >
               <SelectMediaFilePlayButton
                 progress={progress}
                 seasonep={{ season, episode }}

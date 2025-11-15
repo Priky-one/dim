@@ -4,6 +4,7 @@ import Button from "Components/Misc/Button";
 import PlayIcon from "assets/Icons/Play";
 import { SelectMediaFileContext } from "../Context";
 
+
 interface Props {
   progress: number;
   seasonep: {
@@ -20,7 +21,6 @@ function SelectMediaFilePlayButton(props: Props) {
 
   const handleClick = useCallback(() => {
     if (!currentID) return;
-
     setClicked(true);
   }, [currentID, setClicked]);
 

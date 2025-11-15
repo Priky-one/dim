@@ -4,6 +4,8 @@ import { skipToken } from "@reduxjs/toolkit/query/react";
 import Modal from "react-modal";
 
 import { useGetMediaFilesQuery } from "../../api/v1/media";
+import { useStartCastSessionMutation } from "../../api/v1/cast";
+import { getSelectedCastDevice } from "../../Components/Sidebar/CastButton";
 
 import FileVideoIcon from "../../assets/Icons/FileVideo";
 import { SelectMediaFileContext } from "./Context";
@@ -12,22 +14,28 @@ import Button from "../../Components/Misc/Button";
 import "./Index.scss";
 
 const SelectMediaFile = (props) => {
+  const { onPlay, progress } = props;
   const history = useHistory();
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!visible && typeof onPlay === 'function' && typeof progress === 'number') {
+      console.log('[SelectMediaFile] Auto-trigger onPlay with progress:', progress);
+      onPlay(progress);
+    }
+  }, [progress, visible, onPlay]);
 
-  /*
-    prevents data from changing if e.g. banner in the
-    background switches whilst user is still selecting
-  */
+  // ...existing code...
   const [title, setTitle] = useState();
   const [currentID, setCurrentID] = useState();
   const [clicked, setClicked] = useState(false);
-
-  const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
 
   const { data: mediaFiles } = useGetMediaFilesQuery(
     currentID ? currentID : skipToken
   );
+  
+  const [startCast] = useStartCastSessionMutation();
+  const selectedCastDevice = getSelectedCastDevice();
 
   useEffect(() => {
     if (currentID && visible) return;
@@ -59,23 +67,55 @@ const SelectMediaFile = (props) => {
 
     if (mediaFiles.length === 1) {
       setClicked(false);
-      if (
-        history.location.state?.from &&
-        history.location.state.from.startsWith("/play")
-      ) {
-        history.replace(`/play/${mediaFiles[0].id}`, {
-          from: history.location.pathname,
-        });
+      const mediaFileId = mediaFiles[0].id;
+      // If a cast device is selected, start casting instead of opening video player
+      if (selectedCastDevice) {
+        console.log("🎬 Auto-casting to selected device:", selectedCastDevice);
+        (async () => {
+          try {
+            const response = await startCast({
+              device_id: selectedCastDevice,
+              media_file_id: mediaFileId,
+            }).unwrap();
+            console.log("✅ Cast session started:", response.session_id);
+            console.log('[SelectMediaFile] typeof onPlay:', typeof onPlay, 'value:', onPlay);
+            if (typeof onPlay === "function") {
+              try {
+                onPlay(typeof progress === 'number' ? progress : 0);
+                console.log('[SelectMediaFile] onPlay called after cast with progress:', typeof progress === 'number' ? progress : 0);
+              } catch (err) {
+                console.error('[SelectMediaFile] Error calling onPlay:', err);
+              }
+            }
+          } catch (error) {
+            console.error("❌ Failed to start cast:", error);
+            history.push(`/play/${mediaFileId}`, {
+              from: history.location.pathname,
+            });
+          }
+        })();
       } else {
-        history.push(`/play/${mediaFiles[0].id}`, {
-          from: history.location.pathname,
-        });
+        if (
+          history.location.state?.from &&
+          history.location.state.from.startsWith("/play")
+        ) {
+          history.replace(`/play/${mediaFileId}`, {
+            from: history.location.pathname,
+          });
+        } else {
+          history.push(`/play/${mediaFileId}`, {
+            from: history.location.pathname,
+          });
+        }
+        if (typeof onPlay === "function") {
+          onPlay(typeof progress === 'number' ? progress : 0);
+        }
       }
     } else {
       setClicked(false);
       open();
     }
-  }, [clicked, currentID, history, mediaFiles, open]);
+  }, [clicked, currentID, history, mediaFiles, open, selectedCastDevice, startCast]);
 
   const initialValue = {
     open,

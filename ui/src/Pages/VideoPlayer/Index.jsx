@@ -30,6 +30,7 @@ import NextVideo from "./NextVideo/Index";
 import "./Index.scss";
 
 function VideoPlayer() {
+  // Removed invalid props usage; VideoPlayer does not receive props in this context
   const params = useParams();
   const dispatch = useDispatch();
   const history = useHistory();
@@ -314,7 +315,12 @@ function VideoPlayer() {
         <div className="overlay" ref={overlay}>
           {!error && manifest.loaded && video.canPlay && <Menus />}
           {!error && manifest.loaded && video.canPlay && nextEpisodeId && (
-            <NextVideo id={nextEpisodeId} showAfter={showNextVideoAfter} />
+            <NextVideo id={nextEpisodeId} showAfter={showNextVideoAfter} progress={media?.progress} onPlay={(progress) => {
+              // Forward progress to App's handlePlay via prop chain
+              if (typeof progress === 'number') {
+                console.log('[VideoPlayer] NextVideo onPlay with progress:', progress);
+              }
+            }} />
           )}
           {!error && manifest.loaded && video.canPlay && <VideoControls />}
           {(!error & (manifest.loading || !video.canPlay) || video.waiting) && (

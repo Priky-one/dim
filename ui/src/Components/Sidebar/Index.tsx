@@ -10,8 +10,10 @@ import Libraries from "./Libraries";
 import Toggle from "./Toggle";
 import General from "./General";
 import System from "./System";
+import CastButton from "./CastButton";
 
 import "./Index.scss";
+import "./CastButton.scss";
 
 function Sidebar() {
   const dispatch = useAppDispatch();
@@ -28,6 +30,8 @@ function Sidebar() {
       <div className="sectionsWrapper">
         <section className="main-part">
           <Profile hoursSpentWatching={true} />
+          <div className="separator" />
+          <CastButton />
           <div className="separator" />
           <Search />
         </section>

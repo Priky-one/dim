@@ -21,11 +21,7 @@ export const wsConnect =
     const webSocketUrl = (() => {
       const url = new URL("/ws", window.location.href);
       url.protocol = url.protocol.replace("http", "ws");
-      // Create React App's proxy feature has not worked consistently. This makes WebSocket
-      // connections directly to the server instead of proxying through Create React App.
-      if (process.env.NODE_ENV === "development") {
-        url.port = "8000";
-      }
+      // In development, connect through Traefik (same host) instead of directly to port 8000
       return url.href;
     })();
 

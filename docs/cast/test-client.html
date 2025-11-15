@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dim Cast Protocol Tester</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        h1 { color: #3b82f6; }
+        h2 { color: #60a5fa; margin-top: 0; }
+        input, button, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        button {
+            background: #3b82f6;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #444;
+            padding-left: 10px;
+        }
+        .log-entry.sent { border-color: #3b82f6; }
+        .log-entry.received { border-color: #10b981; }
+        .log-entry.error { border-color: #ef4444; }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Dim Cast Protocol Tester</h1>
+    
+    <div class="container">
+        <h2>Connection</h2>
+        <input type="text" id="serverUrl" placeholder="Server URL (e.g., ws://localhost:8000)" value="ws://localhost:8000">
+        <input type="text" id="deviceId" placeholder="Device ID" value="">
+        <input type="text" id="deviceName" placeholder="Device Name" value="Test Device">
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <p>Status: <span class="status disconnected" id="status">Disconnected</span></p>
+    </div>
+
+    <div class="container">
+        <h2>Send Message</h2>
+        <select id="messageType" onchange="updateMessageTemplate()">
+            <option value="register">Register Device</option>
+            <option value="state_update">State Update</option>
+            <option value="ack">Acknowledgment</option>
+            <option value="error">Error</option>
+            <option value="pong">Pong</option>
+        </select>
+        <textarea id="messageBody" rows="10"></textarea>
+        <button onclick="sendMessage()">Send Message</button>
+    </div>
+
+    <div class="container">
+        <h2>Message Log</h2>
+        <button onclick="clearLog()">Clear Log</button>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let deviceId = Math.random().toString(36).substring(7);
+        document.getElementById('deviceId').value = deviceId;
+
+        const messageTemplates = {
+            register: {
+                type: "register",
+                device_id: deviceId,
+                device_name: "Test Device",
+                device_type: "browser",
+                capabilities: {
+                    direct_play: false,
+                    video_codecs: ["h264"],
+                    audio_codecs: ["aac", "mp3"],
+                    subtitle_formats: ["vtt"],
+                    max_resolution: "1080p"
+                }
+            },
+            state_update: {
+                type: "state_update",
+                session_id: "00000000-0000-0000-0000-000000000000",
+                state: "playing",
+                position_ms: 0,
+                duration_ms: 0
+            },
+            ack: {
+                type: "ack",
+                session_id: "00000000-0000-0000-0000-000000000000",
+                command: "play"
+            },
+            error: {
+                type: "error",
+                session_id: "00000000-0000-0000-0000-000000000000",
+                error: "Test error message"
+            },
+            pong: {
+                type: "pong"
+            }
+        };
+
+        function updateMessageTemplate() {
+            const type = document.getElementById('messageType').value;
+            const template = messageTemplates[type];
+            document.getElementById('messageBody').value = JSON.stringify(template, null, 2);
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const wsUrl = serverUrl.replace(/^http/, 'ws') + '/api/v1/cast/ws';
+            
+            deviceId = document.getElementById('deviceId').value;
+            
+            log('Connecting to ' + wsUrl, 'sent');
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                log('WebSocket connected', 'received');
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('connectBtn').textContent = 'Disconnect';
+                document.getElementById('connectBtn').onclick = disconnect;
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log('◄ Received: ' + JSON.stringify(data, null, 2), 'received');
+            };
+            
+            ws.onerror = (error) => {
+                log('WebSocket error: ' + error, 'error');
+            };
+            
+            ws.onclose = () => {
+                log('WebSocket disconnected', 'error');
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('connectBtn').textContent = 'Connect';
+                document.getElementById('connectBtn').onclick = connect;
+                ws = null;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Not connected!', 'error');
+                return;
+            }
+            
+            try {
+                const messageBody = document.getElementById('messageBody').value;
+                const message = JSON.parse(messageBody);
+                
+                // Update device_id in message if it's a register message
+                if (message.type === 'register') {
+                    message.device_id = document.getElementById('deviceId').value;
+                    message.device_name = document.getElementById('deviceName').value;
+                }
+                
+                const messageStr = JSON.stringify(message);
+                ws.send(messageStr);
+                log('► Sent: ' + JSON.stringify(message, null, 2), 'sent');
+            } catch (e) {
+                log('Error sending message: ' + e.message, 'error');
+            }
+        }
+
+        function log(message, type = '') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Initialize with register template
+        updateMessageTemplate();
+    </script>
+</body>
+</html>

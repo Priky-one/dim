@@ -1,0 +1,87 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.web
+    image: myproject-web-dev
+    container_name: dim-web
+    working_dir: /workspace/ui
+    # ports:
+    #   - "3000:3000"  # Expose React dev server to host
+    volumes:
+      - ./ui:/workspace/ui:delegated                 # mount source (ui) into container
+      - web_node_modules:/workspace/ui/node_modules  # persist node_modules separately
+      - ui_build:/workspace/ui/build                  # Share build output with dim container
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_OPTIONS=--openssl-legacy-provider
+      - BROWSER=none  # Don't try to open browser
+      - DANGEROUSLY_DISABLE_HOST_CHECK=true  # Allow access from any host
+    depends_on:
+      - dim
+    stdin_open: true
+    tty: true
+    command: sh -c "yarn install && yarn start"
+
+  dim:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.rust
+    container_name: dim
+    image: myproject-dim-dev
+    # ports:
+    #   - "8000:8000"  # Expose API to host for debugging
+    volumes:
+      - ./:/workspace/dim:cached     # mount repo root as workspace for rust
+      - cargo_registry:/root/.cargo/registry   # cargo registry cache
+      - cargo_git:/root/.cargo/git              # cargo git cache
+      - target_debug:/workspace/dim/target      # cargo target (build artifacts)
+      # UI build is already included in ./ mount above, no need for separate volume
+      - /opt/dim:/opt/dim/config
+      - debridmedia_mnt:/mnt
+      - /tmp:/tmp
+    labels:
+      - "autoheal-app=true"
+      - "traefik.enable=true"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /workspace/dim/utilscargo
+        ln -sf /opt/dim/utils/ffmpeg /workspace/dim/utils/ffmpeg
+        ln -sf /opt/dim/utils/ffprobe /workspace/dim/utils/ffprobe
+        exec cargo watch -x "run"
+    environment:
+      - DATABASE_URL=sqlite:///opt/dim/config/dim.db
+      - RUST_LOG=info
+    stdin_open: true
+    tty: true
+
+  ffmpeg:
+    container_name: ffmpeg
+    image: jrottenberg/ffmpeg:5.1-ubuntu2004  # lightweight ffmpeg dev image
+    entrypoint: ["tail", "-f", "/dev/null"]  # keep container running for exec if needed
+    volumes:
+      - ./ffmpeg-bin:/opt/ffmpeg:rw   # optional, mount if you want static ffmpeg in project
+    # no ports needed; we'll copy from its filesystem if necessary or exec into it
+
+volumes:
+  web_node_modules:
+    driver: local
+  ui_build:
+    driver: local
+  cargo_registry:
+    driver: local
+  cargo_git:
+    driver: local
+  target_debug:
+    driver: local
+  debridmedia_mnt:
+    external: true
+
+networks:
+  default:
+    name: shared_network
+    external: true

@@ -32,6 +32,14 @@ function MediaEpisodes(props) {
               key={ep.id}
               title={`Episode ${ep.episode}`}
               mediaID={ep.id}
+              progress={ep.progress}
+              onPlay={() => {
+                console.log('[Episodes] Play triggered with progress:', ep.progress);
+                if (typeof ep.progress !== 'number') {
+                  console.warn('[Episodes] progress is not a number:', ep.progress);
+                }
+                props.onPlay?.(typeof ep.progress === 'number' ? ep.progress : 0);
+              }}
             >
               <SelectMediaFileEpisode
                 number={ep.episode}
